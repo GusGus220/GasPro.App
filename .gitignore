@@ -1,0 +1,15 @@
+# Carpetas de compilación
+[Bb]in/
+[Oo]bj/
+
+# Carpetas de caché y configuraciones locales de Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Archivos de logs
+[Ll]og/
+[Ll]ogs/
+*.log
