@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using GasPro.Services;
+using GasPro.App.Services.Handlers;
 using System.Diagnostics; // Usamos esto para imprimir errores sin crashear WPF
 
 namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Core)
@@ -24,14 +25,28 @@ namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Co
 
         // ⚡ EL CABLE NERVIOSO HACIA JARVIS
         public Action<MainWindow.EstadoIA> OnCambioEstado;
+        private readonly IEnumerable<ISystemCommandHandler> _systemHandlers;
 
-        public GasOrchestrator()
+        // Soporta inyección de handlers para DI/testing. Si es null, se crean handlers por defecto.
+        public GasOrchestrator(IEnumerable<ISystemCommandHandler> systemHandlers = null)
         {
             _llamaService = new LlamaService();
             _speechService = new PiperSpeechService();
             _audioService = new AudioService();
             _windowsService = new WindowsControlService();
             _chatHistory = new List<LocalChatMessage>();
+
+            _systemHandlers = systemHandlers ?? new List<ISystemCommandHandler>
+            {
+                new SpotifyHandler(_speechService, _windowsService),
+                new BrowserHandler(_speechService, _windowsService),
+                new DiscordHandler(_speechService, _windowsService),
+                new TimeHandler(_speechService),
+                new DateHandler(_speechService),
+                new ClickHandler(_speechService, _windowsService),
+                new MediaHandler(_speechService, _windowsService),
+                new VolumeHandler(_speechService, _windowsService)
+            };
         }
 
         // Lo convertimos en Async para que la UI no se congele al cargar Gigabytes
@@ -70,105 +85,16 @@ namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Co
 
                 if (promptExtraido.Contains("salir") || promptExtraido.Contains("apágate")) break;
 
-                // ---- 🚨 RUTA DE REFLEJOS DEL SISTEMA ----
-                bool esComandoDeSistema = true;
                 string comando = promptExtraido.ToLower();
 
-                if (comando.Contains("spotify"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    _speechService.SpeakAsync("Abriendo Spotify.");
-                    _windowsService.OpenApplication("spotify:");
-                }
-                else if (comando.Contains("chrome") || comando.Contains("google") || comando.Contains("navegador"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    _speechService.SpeakAsync("Abriendo el navegador.");
-                    _windowsService.OpenApplication("https://www.google.com");
-                }
-                else if (comando.Contains("abre discord"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    _speechService.SpeakAsync("Abriendo Discord.");
-                    _ = Task.Run(() => _windowsService.OpenAppBySearch("discord"));
-                }
-                else if (comando.Contains("hora") || comando.Contains("qué hora es"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    string horaFormateada = DateTime.Now.ToString("h:mm tt", new System.Globalization.CultureInfo("es-ES"))
-                        .Replace("AM", "de la mañana").Replace("PM", "de la tarde");
-                    string mensajeHora = $"Son las {horaFormateada}";
-                    _speechService.SpeakAsync(mensajeHora);
-                }
-                else if (comando.Contains("fecha") || comando.Contains("día es hoy") || comando.Contains("dia es hoy"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    string fechaFormateada = DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES"));
-                    string mensajeFecha = $"Hoy es {fechaFormateada}";
-                    _speechService.SpeakAsync(mensajeFecha);
-                }
-                else if (comando.Contains("haz clic") || comando.Contains("haz click"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    _speechService.SpeakAsync("Clic hecho.");
-                    _windowsService.LeftClick();
-                }
-                else if (comando.Contains("pausa") || comando.Contains("reanuda") || comando.Contains("reproduce"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    _speechService.SpeakAsync("Hecho.");
-                    _windowsService.PlayPauseMusic();
-                }
-                else if (comando.Contains("volumen"))
-                {
-                    OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
-                    int targetVolume = -1;
-                    string[] palabras = comando.Split(' ');
-
-                    foreach (var palabra in palabras)
-                    {
-                        string numStr = palabra.Replace("%", "").Trim();
-                        if (int.TryParse(numStr, out int num)) { targetVolume = num; break; }
-
-                        if (numStr == "cero") targetVolume = 0;
-                        else if (numStr == "diez") targetVolume = 10;
-                        else if (numStr == "veinte") targetVolume = 20;
-                        else if (numStr == "treinta") targetVolume = 30;
-                        else if (numStr == "cuarenta") targetVolume = 40;
-                        else if (numStr == "cincuenta") targetVolume = 50;
-                        else if (numStr == "sesenta") targetVolume = 60;
-                        else if (numStr == "setenta") targetVolume = 70;
-                        else if (numStr == "ochenta") targetVolume = 80;
-                        else if (numStr == "noventa") targetVolume = 90;
-                        else if (numStr == "cien" || numStr == "ciento") targetVolume = 100;
-                    }
-
-                    if (targetVolume != -1)
-                    {
-                        _speechService.SpeakAsync($"Ajustando el volumen al {targetVolume} por ciento.");
-                        _windowsService.SetVolume(targetVolume);
-                    }
-                    else if (comando.Contains("baj") || comando.Contains("disminu"))
-                    {
-                        _speechService.SpeakAsync("Bajando el volumen.");
-                        _windowsService.ChangeVolumeBy(-20);
-                    }
-                    else if (comando.Contains("sub") || comando.Contains("aument"))
-                    {
-                        _speechService.SpeakAsync("Subiendo el volumen.");
-                        _windowsService.ChangeVolumeBy(20);
-                    }
-                }
-                else
-                {
-                    esComandoDeSistema = false;
-                }
-
-                if (esComandoDeSistema)
+                // Intentamos procesar comandos del sistema de forma separada
+                bool handled = await TryHandleSystemCommandAsync(comando);
+                if (handled)
                 {
                     _speechService.WaitForSpeechToFinish();
                     continue; // Volvemos a escuchar sin despertar a Llama
                 }
+
                 // ------------------------------------------------
 
                 // 3. Jarvis se pone a calcular (Rojo)
@@ -244,6 +170,29 @@ namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Co
 
                 _speechService.WaitForSpeechToFinish();
             }
+        }
+
+        // Delegamos a los handlers registrados
+        private async Task<bool> TryHandleSystemCommandAsync(string comando)
+        {
+            foreach (var handler in _systemHandlers)
+            {
+                try
+                {
+                    if (handler.CanHandle(comando))
+                    {
+                        OnCambioEstado?.Invoke(MainWindow.EstadoIA.Hablando);
+                        await handler.HandleAsync(comando);
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ERROR en handler {handler.GetType().Name}]: {ex.Message}");
+                }
+            }
+
+            return false;
         }
     }
 }

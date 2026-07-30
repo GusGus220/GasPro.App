@@ -6,6 +6,8 @@ using System.Windows.Threading;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using SkiaSharp.Views.WPF;
+using GasPro.Services;
+using GasPro.App.Services.Handlers;
 
 namespace GasPro.App
 {
@@ -27,7 +29,7 @@ namespace GasPro.App
 
         private List<Particula> _particulas;
         private Random _random = new Random();
-        private string[] _codigosFalsos = { "0x4F2A", "SYS.CHK", "MEM_OK", "TENS:42", "NET:ON", "0x88BC", "CORE.INIT", "VOSK.RDY" };
+        private string[] _codigosFalsos = { "0x4F2A", "SYS.CHK", "MEM_OK", "CCORES:2K", "NET:ON", "0x88BC", "CORE.INIT", "VOSK.RDY" };
 
         private DispatcherTimer _timerMotorGrafico;
         private float _tiempoGlobal = 0;
@@ -260,12 +262,27 @@ namespace GasPro.App
 
         private async void IniciarInteligenciaArtificial(object sender, RoutedEventArgs e)
         {
-            _cerebroGasPro = new GasOrchestrator();
+            // Creamos e inyectamos explícitamente los servicios y handlers (ligera forma de DI)
+            var speech = new PiperSpeechService();
+            var windows = new WindowsControlService();
+            var llama = new LlamaService();
+            var audio = new AudioService();
 
-            _cerebroGasPro.OnCambioEstado = (nuevoEstado) =>
+            var handlers = new List<ISystemCommandHandler>
             {
-                Dispatcher.Invoke(() => CambiarEstado(nuevoEstado));
+                new SpotifyHandler(speech, windows),
+                new BrowserHandler(speech, windows),
+                new DiscordHandler(speech, windows),
+                new TimeHandler(speech),
+                new DateHandler(speech),
+                new ClickHandler(speech, windows),
+                new MediaHandler(speech, windows),
+                new VolumeHandler(speech, windows)
             };
+
+            _cerebroGasPro = new GasOrchestrator(handlers);
+
+            _cerebroGasPro.OnCambioEstado = (nuevoEstado) => Dispatcher.Invoke(() => CambiarEstado(nuevoEstado));
 
             try
             {
@@ -273,6 +290,7 @@ namespace GasPro.App
                 string rutaLlama = System.IO.Path.Combine(directorioBase, "models", "llama", "Llama-3.2-3B-Instruct-Q4_K_M.gguf");
                 string rutaVosk = System.IO.Path.Combine(directorioBase, "models", "vosk");
 
+                // Inicializamos y arrancamos en hilos de background para no bloquear UI
                 await Task.Run(async () => await _cerebroGasPro.InitializeAsync(rutaLlama, rutaVosk));
                 _ = Task.Run(async () => await _cerebroGasPro.RunAsync());
             }
