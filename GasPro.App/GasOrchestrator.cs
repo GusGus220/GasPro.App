@@ -1,6 +1,8 @@
 ﻿using GasPro.App.Services.Handlers;
 using GasPro.Services;
 using System;
+using System.IO;
+using GasPro.Services.Memory;
 using System.Collections.Generic;
 using System.Diagnostics; // Usamos esto para imprimir errores sin crashear WPF
 using System.Threading.Tasks;
@@ -20,7 +22,10 @@ namespace GasPro.App
         private readonly AudioService _audioService;
         private readonly WindowsControlService _windowsService;
         private readonly List<LocalChatMessage> _chatHistory;
-        private const int MaxHistorySize = 2;
+        private const int MaxHistorySize = 5; // ampliado para mejor contexto corto
+        private readonly GasPro.Services.Memory.IEmbeddingService _embedder;
+        private GasPro.Services.Memory.IVectorStore _vectorStore;
+        private readonly string _memoryPath;
         private readonly List<IComandoHandler> _listaReflejos;
 
         // ⚡ EL CABLE NERVIOSO HACIA JARVIS
@@ -36,6 +41,11 @@ namespace GasPro.App
             _windowsService = new WindowsControlService();
             _chatHistory = new List<LocalChatMessage>();
 
+            // Inicializamos el embedder y el vector store (memoria a largo plazo)
+            _embedder = new HashedEmbeddingService(1024);
+            // Solo almacenamos la ruta; el _vectorStore se asignará e inicializará en InitializeAsync
+            _memoryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "memory_store.json");
+
             _systemHandlers = systemHandlers ?? new List<ISystemCommandHandler>
             {
                 new SpotifyHandler(_speechService, _windowsService),
@@ -48,11 +58,27 @@ namespace GasPro.App
                 new OnOffHandler(_speechService, _windowsService),
                 new VolumeHandler(_speechService, _windowsService)
             };
+
+            // NOTE: la inicialización del store se realiza de forma asíncrona en InitializeAsync
         }
 
         // Lo convertimos en Async para que la UI no se congele al cargar Gigabytes
         public async Task InitializeAsync(string llamaModelPath, string voskModelPath)
         {
+            // Inicializamos la memoria a largo plazo de forma asíncrona.
+            // Si no se proporcionó un IVectorStore por DI, lo creamos aquí y lo inicializamos.
+            try
+            {
+                if (_vectorStore == null)
+                {
+                    var memPath = _memoryPath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "memory_store.json");
+                    _vectorStore = new JsonVectorStore(memPath, _embedder);
+                }
+
+                await _vectorStore.InitializeAsync();
+            }
+            catch (Exception ex) { Debug.WriteLine($"[VectorStore init error]: {ex.Message}"); }
+
             Vosk.Vosk.SetLogLevel(-1);
 
             // Inicializamos los motores
@@ -102,7 +128,24 @@ namespace GasPro.App
                 OnCambioEstado?.Invoke(MainWindow.EstadoIA.Pensando);
 
                 string systemPrompt = "<|start_header_id|>system<|end_header_id|>\n\nEres GAS PRO, asistente de IA avanzado. Ubicación: Piura, Perú. Respuestas concisas, precisas y basadas en hechos.<|eot_id|>";
+
+                // Recuperamos memorias semánticas relevantes (memoria a largo plazo)
                 string promptFinal = systemPrompt;
+                try
+                {
+                    var memories = await _vectorStore.QueryAsync(promptExtraido, 5);
+                    if (memories != null && memories.Count > 0)
+                    {
+                        foreach (var mem in memories)
+                        {
+                            promptFinal += $"<|start_header_id|>memory<|end_header_id|>\n\n{mem.Text}<|eot_id|>";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Memory query error]: {ex.Message}");
+                }
 
                 foreach (var msg in _chatHistory)
                 {
@@ -161,8 +204,34 @@ namespace GasPro.App
                     Debug.WriteLine($"\n[ERROR FATAL DE LLAMA]: {ex.Message}\n{ex.StackTrace}");
                 }
 
+                // Guardamos en la memoria local (short-term) y también persistimos en el vector store (long-term)
                 _chatHistory.Add(new LocalChatMessage { Role = "user", Content = promptExtraido });
                 _chatHistory.Add(new LocalChatMessage { Role = "assistant", Content = respuestaCompleta.Trim() });
+
+                // Persistimos de forma asíncrona en el vector store para memoria a largo plazo
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _vectorStore.AddAsync(new GasPro.Services.Memory.MemoryRecord
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Role = "user",
+                            Text = promptExtraido
+                        });
+
+                        await _vectorStore.AddAsync(new GasPro.Services.Memory.MemoryRecord
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Role = "assistant",
+                            Text = respuestaCompleta.Trim()
+                        });
+                    }
+                    catch (Exception mex)
+                    {
+                        Debug.WriteLine($"[Memory store save error]: {mex.Message}");
+                    }
+                });
 
                 while (_chatHistory.Count > MaxHistorySize)
                 {

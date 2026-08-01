@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
@@ -58,20 +59,37 @@ namespace GasPro.Services
 
                         if (!string.IsNullOrWhiteSpace(text))
                         {
-                            // Limpiamos la frase y buscamos nuestra palabra clave
+                            // Limpiamos la frase y buscamos nuestra palabra clave usando límites de palabra
                             string textoLimpio = text.Replace(".", "").Replace(",", "").Trim();
-                            int indiceGas = textoLimpio.IndexOf("gas");
 
-                            if (indiceGas != -1)
+                            var matches = Regex.Matches(textoLimpio, "\\bgas\\b", RegexOptions.IgnoreCase);
+                            if (matches.Count > 0)
                             {
-                                // Extraemos solo lo que dijiste después de "gas" o "gas pro"
-                                string prompt = textoLimpio.Substring(indiceGas + 3).Trim();
-                                if (prompt.StartsWith("pro")) prompt = prompt.Substring(3).Trim();
-
-                                if (!string.IsNullOrWhiteSpace(prompt))
+                                // 1) Preferimos la primera aparición que tenga contenido después
+                                string prompt = null;
+                                foreach (Match m in matches)
                                 {
-                                    promptExtraido = prompt; // Señal para romper el bucle
+                                    int afterIndex = m.Index + m.Length;
+                                    if (afterIndex < textoLimpio.Length)
+                                    {
+                                        string rest = textoLimpio.Substring(afterIndex).Trim();
+                                        if (rest.StartsWith("pro")) rest = rest.Substring(3).Trim();
+                                        if (!string.IsNullOrWhiteSpace(rest)) { prompt = rest; break; }
+                                    }
                                 }
+
+                                // 2) Si no hubo contenido después en ninguna aparición, usamos la última aparición y tomamos lo anterior
+                                if (prompt == null)
+                                {
+                                    var last = matches[matches.Count - 1];
+                                    if (last.Index > 0)
+                                    {
+                                        string before = textoLimpio.Substring(0, last.Index).Trim();
+                                        if (!string.IsNullOrWhiteSpace(before)) prompt = before;
+                                    }
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(prompt)) promptExtraido = prompt; // Señal para romper el bucle
                             }
                         }
                     }
