@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
+using System.Threading.Tasks;
 
 namespace GasPro.Services
 {
@@ -17,6 +18,8 @@ namespace GasPro.Services
         [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
         // Constantes del Mouse
         private const uint MOUSEEVENTF_LEFTDOWN = 0x02;
@@ -93,6 +96,62 @@ namespace GasPro.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"\n[Error de Sistema] No pude abrir {appName}: {ex.Message}");
+            }
+        }
+
+        // Apaga el monitor (envía el comando de ahorro de energía)
+        public void ApagarMonitor()
+        {
+            try
+            {
+                const int HWND_BROADCAST = 0xFFFF;
+                const uint WM_SYSCOMMAND = 0x0112;
+                const int SC_MONITORPOWER = 0xF170;
+
+                SendMessage((IntPtr)HWND_BROADCAST, WM_SYSCOMMAND, (IntPtr)SC_MONITORPOWER, (IntPtr)2);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Error ApagarMonitor] {ex.Message}");
+            }
+        }
+
+        // Cancela un apagado programado (shutdown /a)
+        public void CancelarApagado()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "shutdown",
+                    Arguments = "/a",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Error CancelarApagado] {ex.Message}");
+            }
+        }
+
+        // Programa el apagado del equipo en minutos (usa shutdown /s /t segundos)
+        public void ApagarPCProgramado(int minutos)
+        {
+            try
+            {
+                int segundos = Math.Max(0, minutos) * 60;
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "shutdown",
+                    Arguments = $"/s /t {segundos}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Error ApagarPCProgramado] {ex.Message}");
             }
         }
 

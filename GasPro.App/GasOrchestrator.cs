@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using GasPro.App.Services.Handlers;
 using GasPro.Services;
-using GasPro.App.Services.Handlers;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics; // Usamos esto para imprimir errores sin crashear WPF
+using System.Threading.Tasks;
 
-namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Core)
+namespace GasPro.App
 {
     public class LocalChatMessage
     {
@@ -19,9 +19,9 @@ namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Co
         private readonly PiperSpeechService _speechService;
         private readonly AudioService _audioService;
         private readonly WindowsControlService _windowsService;
-
         private readonly List<LocalChatMessage> _chatHistory;
         private const int MaxHistorySize = 2;
+        private readonly List<IComandoHandler> _listaReflejos;
 
         // ⚡ EL CABLE NERVIOSO HACIA JARVIS
         public Action<MainWindow.EstadoIA> OnCambioEstado;
@@ -45,6 +45,7 @@ namespace GasPro.App // <-- Asegúrate de que coincida con tu proyecto (App o Co
                 new DateHandler(_speechService),
                 new ClickHandler(_speechService, _windowsService),
                 new MediaHandler(_speechService, _windowsService),
+                new OnOffHandler(_speechService, _windowsService),
                 new VolumeHandler(_speechService, _windowsService)
             };
         }
