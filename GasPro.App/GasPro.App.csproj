@@ -14,8 +14,9 @@
     <PackageReference Include="LLamaSharp.Backend.Vulkan" Version="0.27.0" />
     <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="PiperSharp" Version="1.0.6" />
-    <PackageReference Include="SkiaSharp.Views.WPF" Version="4.150.1" />
+    <PackageReference Include="SkiaSharp.Views.WPF" Version="4.151.0" />
     <PackageReference Include="Vosk" Version="0.3.38" />
+	<FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>

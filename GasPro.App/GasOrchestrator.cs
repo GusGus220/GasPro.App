@@ -6,6 +6,9 @@ using GasPro.Services.Memory;
 using System.Collections.Generic;
 using System.Diagnostics; // Usamos esto para imprimir errores sin crashear WPF
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using GasPro.App.Network; // Para que reconozca JarvisHub
 
 namespace GasPro.App
 {
@@ -96,6 +99,29 @@ namespace GasPro.App
 
             // 🟢 Mandamos la señal a la Cara de que estamos listos
             OnCambioEstado?.Invoke(MainWindow.EstadoIA.Reposo);
+
+            // 🌐 LEVANTAR EL SERVIDOR DE TELEPATÍA (SIGNALR)
+            try
+            {
+                var builder = WebApplication.CreateBuilder();
+                builder.Services.AddSignalR();
+                var app = builder.Build();
+
+                // Conectamos la ruta "/jarvis" con nuestra antena
+                app.MapHub<JarvisHub>("/jarvis");
+
+                // Le decimos que escuche en todas las IPs de tu red local por el puerto 5000
+                _ = app.RunAsync("http://0.0.0.0:5000");
+
+                Debug.WriteLine("Servidor SignalR iniciado exitosamente en el puerto 5000.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error al iniciar el servidor SignalR: {ex.Message}");
+            }
+
+            // 👇 EL SALUDO DE JARVIS!
+            _speechService.SpeakAsync("Sistemas en línea y motores calibrados. Estoy listo, señor.");
         }
 
         public async Task RunAsync()

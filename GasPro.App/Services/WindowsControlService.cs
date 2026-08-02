@@ -35,6 +35,8 @@ namespace GasPro.Services
 
         public void Mute() => keybd_event(VK_VOLUME_MUTE, 0, 0, 0);
         public void PlayPauseMusic() => keybd_event(VK_MEDIA_PLAY_PAUSE, 0, 0, 0);
+        public void NextMusic() => keybd_event(0xB0, 0, 0, 0); // VK_MEDIA_NEXT_TRACK
+        public void PreviousMusic() => keybd_event(0xB1, 0, 0, 0); // VK_MEDIA_PREV_TRACK
 
         // --- MOVIMIENTO Y CLICS DEL MOUSE ---
 

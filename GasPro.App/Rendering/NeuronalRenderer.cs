@@ -35,7 +35,7 @@ namespace GasPro.App.Rendering
         private SKPaint _pincelCentro;
         private SKFont _fontConsolas;
 
-        private readonly string[] _codigosFalsos = { "0x4F2A", "SYS.CHK", "MEM_OK", "TENS:42", "NET:ON", "0x88BC", "CORE.INIT", "VOSK.RDY" };
+        private readonly string[] _codigosFalsos = { "CCORES:2K", "SYS.CHK", "MEM_OK", "TENS:42", "NET:ON", "AI.ACTVE", "CORE.INIT", "VOSK.RDY" };
 
         public NeuronalRenderer(int particleCount = 100)
         {

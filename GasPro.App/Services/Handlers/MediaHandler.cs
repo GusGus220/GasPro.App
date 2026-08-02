@@ -14,13 +14,32 @@ namespace GasPro.App.Services.Handlers
             _windows = windows;
         }
 
-        public bool CanHandle(string command) => command.Contains("pausa") || command.Contains("reanuda") || command.Contains("reproduce");
+        public bool CanHandle(string command) =>
+        command.Contains("pausa") || command.Contains("reanuda") || command.Contains("reproduce") ||
+        command.Contains("siguiente") || command.Contains("retrocede") || command.Contains("anterior");
 
-        public Task HandleAsync(string command)
+        public async Task HandleAsync(string command)
         {
             _speech.SpeakAsync("Hecho.");
-            _windows.PlayPauseMusic();
-            return Task.CompletedTask;
+
+            if (command.Contains("siguiente"))
+            {
+                _windows.NextMusic(); // Cambia esto por tu método real
+            }
+            else if (command.Contains("retrocede") || command.Contains("anterior"))
+            {
+                _windows.PreviousMusic(); // Primer toque (reinicia la canción)
+
+                // Pausa de 100 milisegundos para que el sistema registre bien el segundo toque
+                await Task.Delay(100);
+
+                _windows.PreviousMusic(); // Segundo toque (pasa a la canción anterior)
+            }
+            else
+            {
+                // Si no es siguiente ni anterior, es pausa/reproduce
+                _windows.PlayPauseMusic();
+            }
         }
     }
 }
