@@ -22,7 +22,11 @@ namespace GasPro.App.Services.Handlers
                    comando.Contains("apaga la pantalla") ||
                    (comando.Contains("apágate en") && comando.Contains("minutos")) ||
                    comando.Contains("cancela el apagado") ||
-                   comando.Contains("aborta el apagado");
+                   comando.Contains("aborta el apagado") ||
+                   comando.Contains("apaga el pc") || comando.Contains("apaga la computadora") || comando.Contains("apaga el sistema") ||
+                   comando.Contains("modo dormir") || comando.Contains("apaga las luces") || comando.Contains("apaga la luz") ||
+                   comando.Contains("reinicia el pc") || comando.Contains("reinicia la computadora") || comando.Contains("reinicia el sistema") || comando.Contains("reinicia") ||
+                   comando.Contains("modo siesta") || comando.Contains("date un break") || comando.Contains("modo descanso") || comando.Contains("modo siesta");
         }
 
         public Task HandleAsync(string comando)
@@ -73,6 +77,34 @@ namespace GasPro.App.Services.Handlers
                     _speech.SpeakAsync("No entendí cuántos minutos dijo, señor. Por favor repita el comando.");
                     return Task.CompletedTask;
                 }
+            }
+
+            else if (comando.Contains("apaga el pc") || comando.Contains("apaga la computadora") || comando.Contains("apaga el sistema"))
+            {
+                _speech.SpeakAsync("Apagando el sistema, señor. Hasta luego.");
+                _windows.ApagarPCProgramado(0); // Apagado inmediato
+                return Task.CompletedTask;
+            }
+
+            else if (comando.Contains("modo dormir") || comando.Contains("apaga las luces") || comando.Contains("apaga la luz"))
+            {
+                _speech.SpeakAsync("Activando modo dormir, señor. Hasta mañana.");
+                _windows.ModoDormir();
+                return Task.CompletedTask;
+            }
+
+            else if (comando.Contains("reinicia el pc") || comando.Contains("reinicia la computadora") || comando.Contains("reinicia el sistema") || comando.Contains("reinicia"))
+            {
+                _speech.SpeakAsync("Reiniciando el sistema, señor. Hasta luego.");
+                _windows.ReiniciarPC();
+                return Task.CompletedTask;
+            }
+
+            else if (comando.Contains("modo siesta") || comando.Contains("date un break") || comando.Contains("modo descanso"))
+            {
+                _speech.SpeakAsync("Activando modo siesta, señor. Hasta mañana.");
+                _windows.ModoSiesta();
+                return Task.CompletedTask;
             }
 
             return Task.CompletedTask;

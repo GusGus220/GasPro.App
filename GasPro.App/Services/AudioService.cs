@@ -33,6 +33,7 @@ namespace GasPro.Services
                     break;
                 }
             }
+
         }
 
         // Método asíncrono que escucha hasta que digas "gas"
@@ -107,6 +108,45 @@ namespace GasPro.Services
 
                 return promptExtraido;
             });
+        }
+
+        public string TranscribirArchivoWav(string rutaArchivo)
+        {
+            try
+            {
+                // 🛡️ EL ESCUDO ANTI-CHOQUES: Creamos un reconocedor TEMPORAL solo para este archivo.
+                // Usamos el mismo _voskModel (que sí soporta múltiples conexiones), pero evitamos 
+                // tocar el _recognizer del micrófono en vivo.
+                using var tempRecognizer = new VoskRecognizer(_voskModel, 16000.0f);
+
+                // 2. Usamos NAudio para leer el archivo que mandó el celular
+                using var waveReader = new AudioFileReader(rutaArchivo);
+
+                // 3. Forzamos el formato a 16kHz/16-bit/Mono para que Vosk lo entienda
+                var outFormat = new WaveFormat(16000, 16, 1);
+                using var resampler = new MediaFoundationResampler(waveReader, outFormat);
+
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+
+                // 4. Le damos de comer el audio al clon temporal
+                while ((bytesRead = resampler.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    tempRecognizer.AcceptWaveform(buffer, bytesRead);
+                }
+
+                // 5. Vosk devuelve un JSON, así que lo parseamos
+                string jsonResult = tempRecognizer.FinalResult();
+                using var doc = System.Text.Json.JsonDocument.Parse(jsonResult);
+                string textoLimpio = doc.RootElement.GetProperty("text").GetString();
+
+                return textoLimpio ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Error en AudioService leyendo archivo: {ex.Message}");
+                return string.Empty;
+            }
         }
     }
 }

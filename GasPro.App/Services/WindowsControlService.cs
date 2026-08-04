@@ -157,6 +157,61 @@ namespace GasPro.Services
             }
         }
 
+        public void ReiniciarPC()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "shutdown",
+                    Arguments = "/r /f /t 0", // Reinicia inmediatamente
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Error ReiniciarPC] {ex.Message}");
+            }
+        }
+
+        public void ModoSiesta()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "rundll32.exe",
+                    Arguments = "powrprof.dll,SetSuspendState 0,1,0", // El parámetro mágico para suspender
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Error ModoSiesta] {ex.Message}");
+            }
+        }
+
+
+        public void ModoDormir()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "shutdown",
+                    Arguments = "/s /f /t 0", // La combinación letal
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n[Error ModoDormir] {ex.Message}");
+            }
+        }
+
         internal void SearchAndPlaySpotifyAsync(string cancion)
         {
             throw new NotImplementedException();
